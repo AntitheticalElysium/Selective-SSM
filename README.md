@@ -7,6 +7,7 @@ A reimplementation of a selective state space model.
 > Albert Gu*, Tri Dao*  
 > Paper: https://arxiv.org/abs/2312.00752  
 
+
 # Reimplementation Roadmap
 
 
@@ -24,7 +25,6 @@ A reimplementation of a selective state space model.
 - [ ] Implement basic utilities (parameter initialization, layer normalization)
 - [ ] Set up synthetic tasks (Selective Copying, Induction Heads) for validation
 
----
 
 ## Phase 2: Core SSM Implementation 
 
@@ -41,7 +41,6 @@ A reimplementation of a selective state space model.
 - [ ] Add broadcasting operations for Δ across D channels
 - [ ] Verify Theorem 1 (connection to RNN gating) numerically
 
----
 
 ## Phase 3: Hardware-Aware Parallel Scan 
 
@@ -59,7 +58,6 @@ A reimplementation of a selective state space model.
 
 **Note:** If CUDA experience is limited, consider using Triton for kernel implementation as an alternative.
 
----
 
 ## Phase 4: Mamba Block Architecture 
 
@@ -77,7 +75,6 @@ A reimplementation of a selective state space model.
 - [ ] Add RMSNorm between blocks
 - [ ] Test single block forward/backward pass
 
----
 
 ## Phase 5: Complete Model & Training
 
@@ -92,8 +89,7 @@ A reimplementation of a selective state space model.
 - [ ] Add learning rate scheduler (warmup + cosine decay)
 - [ ] Implement gradient clipping (value 1.0)
 - [ ] Add weight decay (0.1) without applying to biases/norms
-
----
+      
 
 ## Phase 6: Validation & Testing
 
