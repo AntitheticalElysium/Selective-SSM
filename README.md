@@ -11,22 +11,7 @@ A reimplementation of a selective state space model.
 # Reimplementation Roadmap
 
 
-## Phase 1: Foundations & Core SSM Understanding 
-
-### Theory & Background
-- [ ] Read and understand Section 2 (State Space Models) thoroughly
-- [ ] Understand continuous-time SSM equations (1a, 1b) and their discretization
-- [ ] Study the difference between LTI (Linear Time Invariant) and selective SSMs
-- [ ] Review the motivation for selection mechanism (Section 3.1)
-
-### Basic Infrastructure Setup
-- [ ] Set up development environment (PyTorch, CUDA toolkit)
-- [ ] Create project structure with proper testing framework
-- [ ] Implement basic utilities (parameter initialization, layer normalization)
-- [ ] Set up synthetic tasks (Selective Copying, Induction Heads) for validation
-
-
-## Phase 2: Core SSM Implementation 
+## Phase 1: Core SSM Implementation 
 
 ### Standard S4 Layer (Non-selective baseline)
 - [ ] Implement discretization formulas (Equation 4 - ZOH)
@@ -42,7 +27,7 @@ A reimplementation of a selective state space model.
 - [ ] Verify Theorem 1 (connection to RNN gating) numerically
 
 
-## Phase 3: Hardware-Aware Parallel Scan 
+## Phase 2: Hardware-Aware Parallel Scan 
 
 ### Parallel Scan Algorithm
 - [ ] Implement basic associative scan in PyTorch (naive version)
@@ -56,10 +41,8 @@ A reimplementation of a selective state space model.
 - [ ] Add recomputation strategy for backward pass
 - [ ] Benchmark against naive PyTorch implementation (target: 20-40× speedup)
 
-**Note:** If CUDA experience is limited, consider using Triton for kernel implementation as an alternative.
 
-
-## Phase 4: Mamba Block Architecture 
+## Phase 3: Mamba Block Architecture 
 
 ### Block Components
 - [ ] Implement input projection (expansion to ED dimensions, E=2)
@@ -76,7 +59,7 @@ A reimplementation of a selective state space model.
 - [ ] Test single block forward/backward pass
 
 
-## Phase 5: Complete Model & Training
+## Phase 4: Complete Model & Training
 
 ### Model Assembly
 - [ ] Stack multiple Mamba blocks to create full model
@@ -91,7 +74,7 @@ A reimplementation of a selective state space model.
 - [ ] Add weight decay (0.1) without applying to biases/norms
       
 
-## Phase 6: Validation & Testing
+## Phase 5: Validation & Testing
 
 ### Synthetic Task Validation
 - [ ] Test on Selective Copying task (Table 1 target: ~99% accuracy)
