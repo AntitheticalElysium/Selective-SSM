@@ -14,10 +14,10 @@ A reimplementation of a selective state space model.
 ## Phase 1: Core SSM Implementation
 
 ### Standard S4 Layer (Non-selective baseline)
-- [ ] Implement discretization formulas (Equation 4 - ZOH)
-- [ ] Implement the recurrent form (Equation 2a, 2b)
-- [ ] Implement the convolutional form (Equation 3a, 3b) using FFT
-- [ ] Test equivalence between recurrent and convolutional modes
+- [x] Implement discretization formulas (Equation 4 - ZOH)
+- [x] Implement the recurrent form (Equation 2a, 2b)
+- [x] Implement the convolutional form (Equation 3a, 3b) using FFT
+- [x] Test equivalence between recurrent and convolutional modes
 - [ ] Validate on simple copying task
 
 ### Selection Mechanism (Algorithm 2)
