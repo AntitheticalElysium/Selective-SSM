@@ -38,8 +38,8 @@ class S4(nn.Module):
 
         if self.training:
             # Use more efficient convolutional mode
-            y = F.ssm_convolutional(u, A_bar, B_bar, self.c)
+            y = F.ssm_convolutional(u, A_bar, B_bar, self.C)
         else:
             # Autoregressive inference
-            y = F.ssm_recurrent(u, A_bar, B_bar, self.c)
+            y = F.ssm_recurrent(u, A_bar, B_bar, self.C)
         return y

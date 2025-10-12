@@ -51,25 +51,36 @@ def ssm_convolutional(u, A_bar, B_bar, C):
 
     # Power of 2 is more efficient for FFT but 2 * L  is more simple for now
     fft_len = 2 * L
-    # Apply FFT to the kernel and the input (rfft for real vals)
-    K_fft = fft.rfft(K_bar, n=fft_len, dim=-1)
 
     # L needs to be last => (B, D, L)
     u_transposed = u.transpose(1, 2)
-    u_fft = fft.rfft(u_transposed, n=fft_len, dim=-1)
 
-    # K_fft needs a batch dim to multiply with u_fft => (B, D, L_fft)
-    y_fft = u_fft * K_fft.unsqueeze(0)
-    # Inverse step
-    y_transposed = fft.irfft(y_fft, n=fft_len, dim=-1)
+    # If A_bar was complex, K_bar will also be complex
+    if K_bar.dtype.is_complex:
+        K_fft = fft.fft(K_bar, n=fft_len, dim=-1)
+        # Convert real to complex for proper convolution
+        u_complex = u_transposed.to(torch.cfloat)
+        u_fft_full = fft.fft(u_complex, n=fft_len, dim=-1)
+        # Convolution in freq domain: multiply FFTs element-wise
+        y_fft = u_fft_full * K_fft.unsqueeze(0)
+        # Inverse FFT to get convolution result
+        y_transposed = fft.ifft(y_fft, n=fft_len, dim=-1)
+        # Take real part since output should be real (need to check this?)
+        if not u.dtype.is_complex:
+            y_transposed = y_transposed.real
+    else:
+        # Use rfft for the real-valued kernel
+        K_fft = fft.rfft(K_bar, n=fft_len, dim=-1)
+        u_fft = fft.rfft(u_transposed, n=fft_len, dim=-1)
+
+        y_fft = u_fft * K_fft.unsqueeze(0)
+
+        y_transposed = fft.irfft(y_fft, n=fft_len, dim=-1)
 
     # Truncate to L
     y = y_transposed[..., :L]
     # Back to (B, L, D)
     y = y.transpose(1, 2)
-
-    if y.is_complex():
-        y = y.real
     return y
 
 
@@ -105,7 +116,6 @@ def ssm_recurrent(u, A_bar, B_bar, C):
         h = A_bar * h + B_bar * x_t.unsqueeze(-1)
         # Current output for step
         y_t = (C * h).sum(dim=-1)
-
         # If params are complex, we'll need the real part of sum
         if y_t.is_complex():
             y_t = y_t.real

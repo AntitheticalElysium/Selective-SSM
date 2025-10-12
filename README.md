@@ -3,15 +3,15 @@ A reimplementation of a selective state space model.
 
 <img width="8296" height="3093" alt="image" src="https://github.com/user-attachments/assets/c010fb65-3cb9-4520-8b46-d9bf28660932" />
 
-> Mamba: Linear-Time Sequence Modeling with Selective State Spaces  
-> Albert Gu*, Tri Dao*  
-> Paper: https://arxiv.org/abs/2312.00752  
+> Mamba: Linear-Time Sequence Modeling with Selective State Spaces
+> Albert Gu*, Tri Dao*
+> Paper: https://arxiv.org/abs/2312.00752
 
 
 # Reimplementation Roadmap
 
 
-## Phase 1: Core SSM Implementation 
+## Phase 1: Core SSM Implementation
 
 ### Standard S4 Layer (Non-selective baseline)
 - [ ] Implement discretization formulas (Equation 4 - ZOH)
@@ -27,7 +27,7 @@ A reimplementation of a selective state space model.
 - [ ] Verify Theorem 1 (connection to RNN gating) numerically
 
 
-## Phase 2: Hardware-Aware Parallel Scan 
+## Phase 2: Hardware-Aware Parallel Scan
 
 ### Parallel Scan Algorithm
 - [ ] Implement basic associative scan in PyTorch (naive version)
@@ -42,7 +42,7 @@ A reimplementation of a selective state space model.
 - [ ] Benchmark against naive PyTorch implementation (target: 20-40× speedup)
 
 
-## Phase 3: Mamba Block Architecture 
+## Phase 3: Mamba Block Architecture
 
 ### Block Components
 - [ ] Implement input projection (expansion to ED dimensions, E=2)
@@ -72,7 +72,7 @@ A reimplementation of a selective state space model.
 - [ ] Add learning rate scheduler (warmup + cosine decay)
 - [ ] Implement gradient clipping (value 1.0)
 - [ ] Add weight decay (0.1) without applying to biases/norms
-      
+
 
 ## Phase 5: Validation & Testing
 

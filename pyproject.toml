@@ -1,5 +1,5 @@
 [project]
-name = "selective-ssm"
+name = "selective_ssm"
 version = "0.1.0"
 description = "A reimplementation of a selective state space model."
 readme = "README.md"
