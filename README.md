@@ -18,12 +18,12 @@ A reimplementation of a selective state space model.
 - [x] Implement the recurrent form (Equation 2a, 2b)
 - [x] Implement the convolutional form (Equation 3a, 3b) using FFT
 - [x] Test equivalence between recurrent and convolutional modes
-- [ ] Validate on simple copying task
+- [x] Validate on simple copying task
 
 ### Selection Mechanism (Algorithm 2)
-- [ ] Implement input-dependent Δ with Linear projection and softplus
-- [ ] Implement selective B and C parameters
-- [ ] Add broadcasting operations for Δ across D channels
+- [x] Implement input-dependent Δ with Linear projection and softplus
+- [x] Implement selective B and C parameters
+- [x] Add broadcasting operations for Δ across D channels
 - [ ] Verify Theorem 1 (connection to RNN gating) numerically
 
 

@@ -20,7 +20,29 @@ def discretize_zoh(delta, A, B):
     delta_A = A * delta
 
     A_bar = torch.exp(delta_A)
-    B_bar = (A_bar - 1) / A * B
+    B_bar = (A_bar - 1) / delta_A * delta * B
+    return A_bar, B_bar
+
+
+def discretize_zoh_selective(delta, A, B):
+    """
+    Discretize continuous-time SSM parameters for selective (time-varying) SSMs.
+
+    Args:
+        delta (torch.Tensor): The discretization timestep, shape (B, D, 1).
+        A (torch.Tensor): The state matrix, shape (D, N).
+        B (torch.Tensor): The input matrix, shape (B, D, N).
+
+    Returns:
+        Tuple[torch.Tensor, torch.Tensor]: A tuple containing:
+            - A_bar: shape (B, D, N)
+            - B_bar: shape (B, D, N)
+    """
+    # A needs batch dimension for broadcasting
+    delta_A = delta * A.unsqueeze(0)
+    A_bar = torch.exp(delta_A)
+    B_bar = (A_bar - 1) / delta_A * delta * B
+
     return A_bar, B_bar
 
 
