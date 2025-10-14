@@ -20,17 +20,16 @@ class S4(nn.Module):
         self.d_state = d_state
 
         # Trainable params, A is initialized as complex
-        # Also has negative real part for stability
-        A_real = -0.5 * torch.rand(d_model, d_state)
+        # Also has real part with range (0.5 to -1.0) for stability
+        # Maybe implem HiPPO matrices later?
+        A_real = -0.5 - 0.5 * torch.rand(d_model, d_state)
         A_imag = torch.randn(d_model, d_state)
         self.A = nn.Parameter(torch.complex(A_real, A_imag))
 
-        # Initialize B and C with smaller values for stability
-        self.B = nn.Parameter(0.1 * torch.randn(d_model, d_state))
-        self.C = nn.Parameter(0.1 * torch.randn(d_model, d_state))
-
-        # Delta is used for discretization (ZOH), keep it small and positive
-        self.delta = nn.Parameter(0.01 * torch.rand(d_model) + 0.001)
+        self.B = nn.Parameter(torch.randn(d_model, d_state))
+        self.C = nn.Parameter(torch.randn(d_model, d_state))
+        # Delta controls discretization, larger = more signal propagation
+        self.delta = nn.Parameter(0.1 * torch.ones(d_model))
 
     def forward(self, u):
         """
