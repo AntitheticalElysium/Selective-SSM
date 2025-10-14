@@ -40,10 +40,11 @@ def ssm_convolutional(u, A_bar, B_bar, C):
     _, L, _ = u.shape
     # Compute the SSM convolution kernel K_bar
     # A_powers stores A_bar^0, A_bar^1, ..., A_bar^(L-1)
-    A_powers = torch.zeros(L, *A_bar.shape, device=u.device, dtype=A_bar.dtype)
-    A_powers[0] = torch.ones_like(A_bar)
+    A_powers = []
+    A_powers.append(torch.ones_like(A_bar))
     for k in range(1, L):
-        A_powers[k] = A_powers[k - 1] * A_bar
+        A_powers.append(A_powers[k - 1] * A_bar)
+    A_powers = torch.stack(A_powers, dim=0)
 
     # Sum over state dim N: (1, D, N) * (L, D, N) * (1, D, N) => (L, D)
     K_bar = (C.unsqueeze(0) * A_powers * B_bar.unsqueeze(0)).sum(dim=-1)
@@ -112,8 +113,9 @@ def ssm_recurrent(u, A_bar, B_bar, C):
     for t in range(L):
         # Input at current timestep
         x_t = u[:, t, :]
-        # Update hidden state using recurrence relation
-        h = A_bar * h + B_bar * x_t.unsqueeze(-1)
+        # Update hidden state using recurrence relation (no in-place for autograd)
+        h_new = A_bar * h + B_bar * x_t.unsqueeze(-1)
+        h = h_new
         # Current output for step
         y_t = (C * h).sum(dim=-1)
         # If params are complex, we'll need the real part of sum
