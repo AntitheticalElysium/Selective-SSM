@@ -73,8 +73,7 @@ class SelectiveSSM(nn.Module):
         # Projections to make delta, B, C input-dependent
         self.delta_proj = nn.Linear(d_model, d_model, bias=False)
 
-        # Initialize delta bias according to paper: τ_Δ^(-1)(Uniform([0.001, 0.1]))
-        # For softplus: softplus^(-1)(x) = log(exp(x) - 1)
+        # Initialize delta bias according to paper
         dt_init_range = (0.001, 0.1)
         dt = (
             torch.rand(d_model) * (dt_init_range[1] - dt_init_range[0])
