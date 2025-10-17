@@ -72,7 +72,16 @@ class SelectiveSSM(nn.Module):
         self.A = nn.Parameter(-0.5 - 0.5 * torch.rand(d_model, d_state))
         # Projections to make delta, B, C input-dependent
         self.delta_proj = nn.Linear(d_model, d_model, bias=False)
-        self.delta_bias = nn.Parameter(torch.zeros(d_model))
+
+        # Initialize delta bias according to paper: τ_Δ^(-1)(Uniform([0.001, 0.1]))
+        # For softplus: softplus^(-1)(x) = log(exp(x) - 1)
+        dt_init_range = (0.001, 0.1)
+        dt = (
+            torch.rand(d_model) * (dt_init_range[1] - dt_init_range[0])
+            + dt_init_range[0]
+        )
+        inv_dt = torch.log(torch.exp(dt) - 1)
+        self.delta_bias = nn.Parameter(inv_dt)
         # B and C project from input dimension D to (D * N)
         # => (B, L, D, N) in the forward pass
         self.B_proj = nn.Linear(d_model, d_model * d_state, bias=False)

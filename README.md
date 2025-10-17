@@ -24,7 +24,7 @@ A reimplementation of a selective state space model.
 - [x] Implement input-dependent Δ with Linear projection and softplus
 - [x] Implement selective B and C parameters
 - [x] Add broadcasting operations for Δ across D channels
-- [ ] Verify Theorem 1 (connection to RNN gating) numerically
+- [x] Verify Theorem 1 (connection to RNN gating) numerically
 
 
 ## Phase 2: Hardware-Aware Parallel Scan
