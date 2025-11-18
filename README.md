@@ -30,8 +30,8 @@ A reimplementation of a selective state space model.
 ## Phase 2: Hardware-Aware Parallel Scan
 
 ### Parallel Scan Algorithm
-- [ ] Implement basic associative scan in PyTorch (naive version)
-- [ ] Study parallel scan algorithms (Blelloch 1990 reference)
+- [x] Implement basic associative scan in PyTorch (naive version)
+- [x] Study parallel scan algorithms (Blelloch 1990 reference)
 - [ ] Implement work-efficient parallel scan
 - [ ] Test correctness against recurrent computation
 
