@@ -175,3 +175,49 @@ def ssm_binary_operator(elem_1, elem_2):
     b_combined = A_2 * b_1 + b_2
 
     return A_combined, b_combined
+
+
+def naive_sequential_scan(A_bar, B_bar_x, initial_state=None):
+    """
+    Naive sequential scan for SSM - uses binary operator in a simple loop.
+    Reference implementation for testing correctness- not optimized yet...
+
+    Args:
+        A_bar: torch.Tensor of shape (B, L, D, N)
+            Discretized state transition matrices for all timesteps
+        B_bar_x: torch.Tensor of shape (B, L, D, N)
+            Precomputed B_bar * x for all timesteps (input effect)
+        initial_state: torch.Tensor of shape (B, D, N), optional
+            Initial hidden state. If None, uses zeros.
+
+    Returns:
+        torch.Tensor of shape (B, L, D, N)
+            Hidden states h_t for all timesteps t=1..L
+    """
+    B, L, D, N = A_bar.shape
+    if initial_state is None:
+        initial_state = torch.zeros(B, D, N, device=A_bar.device, dtype=A_bar.dtype)
+
+    # Start with identity element
+    A_accumulated = torch.ones(B, D, N, device=A_bar.device, dtype=A_bar.dtype)
+    h_accumulated = initial_state.clone()
+
+    results = []
+
+    for t in range(L):
+        # Get transition for this timestep
+        A_t = A_bar[:, t, :, :]  # (B, D, N)
+        b_t = B_bar_x[:, t, :, :]  # same
+
+        A_accumulated, h_accumulated = ssm_binary_operator(
+            # Previous accumulation (apply first)
+            (A_accumulated, h_accumulated),
+            # Current timestep (apply second)
+            (A_t, b_t),
+        )
+
+        # The second component is our hidden state h_t
+        results.append(h_accumulated.clone())
+
+    h_all = torch.stack(results, dim=1)
+    return h_all

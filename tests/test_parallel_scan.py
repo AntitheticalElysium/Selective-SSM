@@ -2,21 +2,19 @@ import unittest
 
 import torch
 
-from src.selective_ssm.functional import ssm_binary_operator
+from src.selective_ssm.functional import naive_sequential_scan, ssm_binary_operator
 
 
 class TestBinaryOperator(unittest.TestCase):
     """Test the associative binary operator for SSM scan."""
 
     def setUp(self):
-        """Set up test fixtures."""
         torch.manual_seed(42)
         self.B = 2  # Batch size
         self.D = 4  # Model dimension
         self.N = 8  # State dimension
 
     def test_operator_output_shape(self):
-        """Test that operator preserves tensor shapes."""
         A1 = torch.randn(self.B, self.D, self.N)
         b1 = torch.randn(self.B, self.D, self.N)
         A2 = torch.randn(self.B, self.D, self.N)
@@ -30,11 +28,7 @@ class TestBinaryOperator(unittest.TestCase):
 
     def test_associativity(self):
         """
-        Test that the operator is associative.
-
         Verifies: ((e1 ⊕ e2) ⊕ e3) == (e1 ⊕ (e2 ⊕ e3))
-
-        This is the fundamental property required for parallel scan.
         """
         # Create three random elements
         A1 = torch.randn(self.B, self.D, self.N)
@@ -61,7 +55,7 @@ class TestBinaryOperator(unittest.TestCase):
             torch.allclose(left_b, right_b, atol=1e-5),
             f"b vectors don't match: max diff = {(left_b - right_b).abs().max()}",
         )
-        print("✓ Associativity test passed")
+        print("Associativity test passed")
 
     def test_identity_element(self):
         """
@@ -93,12 +87,6 @@ class TestBinaryOperator(unittest.TestCase):
         print("Identity element test passed")
 
     def test_manual_computation(self):
-        """
-        Test against manual computation for a simple case.
-
-        Verifies the mathematical correctness by computing the result
-        manually and comparing.
-        """
         # Simple 2x2 case for easy verification
         A1 = torch.tensor([[[2.0, 3.0]]])  # (1, 1, 2)
         b1 = torch.tensor([[[1.0, 2.0]]])  # (1, 1, 2)
@@ -121,9 +109,6 @@ class TestBinaryOperator(unittest.TestCase):
     def test_sequential_composition(self):
         """
         Test that the operator correctly represents sequential SSM steps.
-
-        Verifies that applying two transitions via the operator gives
-        the same result as applying them sequentially.
         """
         # Initial hidden state
         h0 = torch.randn(self.B, self.D, self.N)
@@ -195,6 +180,143 @@ class TestBinaryOperator(unittest.TestCase):
         self.assertFalse(torch.isinf(b_combined).any(), "b_combined contains Inf")
 
         print("No NaN/Inf test passed")
+
+
+class TestNaiveScan(unittest.TestCase):
+    """Test the naive sequential scan implementation."""
+
+    def setUp(self):
+        """Set up test fixtures."""
+        torch.manual_seed(42)
+        self.B = 2
+        self.D = 4
+        self.N = 8
+
+    def test_scan_output_shape(self):
+        """Test that scan produces correct output shape."""
+        L = 10
+        A_bar = torch.randn(self.B, L, self.D, self.N)
+        B_bar_x = torch.randn(self.B, L, self.D, self.N)
+
+        h = naive_sequential_scan(A_bar, B_bar_x)
+
+        self.assertEqual(h.shape, (self.B, L, self.D, self.N))
+        print("Scan output shape test passed")
+
+    def test_scan_vs_manual_recurrence(self):
+        """
+        Test that scan gives same result as manual SSM recurrence.
+        """
+        L = 10
+        A_bar = torch.randn(self.B, L, self.D, self.N)
+        B_bar_x = torch.randn(self.B, L, self.D, self.N)
+
+        # Method 1: Naive scan using our binary operator
+        h_scan = naive_sequential_scan(A_bar, B_bar_x)
+
+        # Method 2: Manual recurrence (ground truth from SelectiveSSM)
+        h_manual = torch.zeros(self.B, self.D, self.N)
+        h_manual_all = []
+        for t in range(L):
+            # This is the actual SSM recurrence: h_t = A_t * h_{t-1} + b_t
+            h_manual = A_bar[:, t] * h_manual + B_bar_x[:, t]
+            h_manual_all.append(h_manual.clone())
+        h_manual_stacked = torch.stack(h_manual_all, dim=1)
+
+        # Compare - they should be IDENTICAL
+        max_diff = (h_scan - h_manual_stacked).abs().max().item()
+        self.assertTrue(
+            torch.allclose(h_scan, h_manual_stacked, atol=1e-5),
+            f"Scan vs manual mismatch: max diff = {max_diff}",
+        )
+        print(f"Scan vs manual recurrence test passed (max diff: {max_diff:.2e})")
+
+    def test_scan_with_initial_state(self):
+        """Test scan with non-zero initial state."""
+        L = 5
+        A_bar = torch.randn(self.B, L, self.D, self.N)
+        B_bar_x = torch.randn(self.B, L, self.D, self.N)
+        initial_state = torch.randn(self.B, self.D, self.N)
+
+        # Scan with initial state
+        h_scan = naive_sequential_scan(A_bar, B_bar_x, initial_state=initial_state)
+
+        # Manual computation with initial state
+        h_manual = initial_state.clone()
+        h_manual_all = []
+        for t in range(L):
+            h_manual = A_bar[:, t] * h_manual + B_bar_x[:, t]
+            h_manual_all.append(h_manual.clone())
+        h_manual_stacked = torch.stack(h_manual_all, dim=1)
+
+        # Compare
+        self.assertTrue(torch.allclose(h_scan, h_manual_stacked, atol=1e-5))
+        print("Scan with initial state test passed")
+
+    def test_scan_different_lengths(self):
+        """Test scan works with different sequence lengths."""
+        test_lengths = [1, 2, 4, 8, 10, 32, 127, 128]
+
+        for L in test_lengths:
+            A_bar = torch.randn(self.B, L, self.D, self.N)
+            B_bar_x = torch.randn(self.B, L, self.D, self.N)
+
+            h_scan = naive_sequential_scan(A_bar, B_bar_x)
+
+            # Verify against manual
+            h_manual = torch.zeros(self.B, self.D, self.N)
+            h_manual_all = []
+            for t in range(L):
+                h_manual = A_bar[:, t] * h_manual + B_bar_x[:, t]
+                h_manual_all.append(h_manual.clone())
+            h_manual_stacked = torch.stack(h_manual_all, dim=1)
+
+            self.assertTrue(
+                torch.allclose(h_scan, h_manual_stacked, atol=1e-5), f"Failed for L={L}"
+            )
+
+        print(f"Different sequence lengths test passed (tested L={test_lengths})")
+
+    def test_scan_single_timestep(self):
+        """Test scan with single timestep (L=1)."""
+        L = 1
+        A_bar = torch.randn(self.B, L, self.D, self.N)
+        B_bar_x = torch.randn(self.B, L, self.D, self.N)
+        initial_state = torch.randn(self.B, self.D, self.N)
+
+        h_scan = naive_sequential_scan(A_bar, B_bar_x, initial_state=initial_state)
+
+        # For L=1: h_1 = A_1 * h_0 + b_1
+        h_expected = A_bar[:, 0] * initial_state + B_bar_x[:, 0]
+        h_expected = h_expected.unsqueeze(1)  # Add sequence dimension
+
+        self.assertTrue(torch.allclose(h_scan, h_expected, atol=1e-6))
+        print("Single timestep test passed")
+
+    def test_scan_no_nans_or_infs(self):
+        """Test that scan doesn't produce NaN or Inf values."""
+        L = 20
+        A_bar = torch.randn(self.B, L, self.D, self.N)
+        B_bar_x = torch.randn(self.B, L, self.D, self.N)
+
+        h = naive_sequential_scan(A_bar, B_bar_x)
+
+        self.assertFalse(torch.isnan(h).any(), "Scan output contains NaN")
+        self.assertFalse(torch.isinf(h).any(), "Scan output contains Inf")
+        print("No NaN/Inf test passed")
+
+    def test_scan_dtype_preservation(self):
+        """Test that scan preserves data types."""
+        L = 5
+        for dtype in [torch.float32, torch.float64]:
+            A_bar = torch.randn(self.B, L, self.D, self.N, dtype=dtype)
+            B_bar_x = torch.randn(self.B, L, self.D, self.N, dtype=dtype)
+
+            h = naive_sequential_scan(A_bar, B_bar_x)
+
+            self.assertEqual(h.dtype, dtype, f"Dtype not preserved for {dtype}")
+
+        print("Data type preservation test passed")
 
 
 if __name__ == "__main__":
