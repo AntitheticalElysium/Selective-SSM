@@ -148,3 +148,30 @@ def ssm_recurrent(u, A_bar, B_bar, C):
     # Stack along L to create (B, L, D) from (B, D)
     y = torch.stack(outputs, dim=1)
     return y
+
+
+def ssm_binary_operator(elem_1, elem_2):
+    """
+    Binary associative operator for SSM parallel scan.
+
+    Args:
+        elem_1: Tuple of (A_1, b_1) where:
+            A_1: torch.Tensor of shape (B, D, N) - Left transition matrix
+            b_1: torch.Tensor of shape (B, D, N) - Left accumulated input
+        elem_2: Tuple of (A_2, b_2) where:
+            A_2: torch.Tensor of shape (B, D, N) - Right transition matrix
+            b_2: torch.Tensor of shape (B, D, N) - Right accumulated input
+
+    Returns:
+        Tuple[torch.Tensor, torch.Tensor]: Combined (A_combined, b_combined)
+            A_combined: (B, D, N) - Product A_2 * A_1
+            b_combined: (B, D, N) - A_2 * b_1 + b_2
+
+    """
+    A_1, b_1 = elem_1
+    A_2, b_2 = elem_2
+
+    A_combined = A_2 * A_1
+    b_combined = A_2 * b_1 + b_2
+
+    return A_combined, b_combined
