@@ -221,3 +221,76 @@ def naive_sequential_scan(A_bar, B_bar_x, initial_state=None):
 
     h_all = torch.stack(results, dim=1)
     return h_all
+
+
+def blelloch_parallel_scan(A_bar, B_bar_x, initial_state=None):
+    """
+    Work-efficient parallel scan for SSM using a modified Blelloch's algorithm.
+
+    Args:
+        A_bar: torch.Tensor of shape (B, L, D, N)
+            Discretized state transition matrices for all timesteps
+        B_bar_x: torch.Tensor of shape (B, L, D, N)
+            Precomputed B_bar * x for all timesteps (input effect)
+        initial_state: torch.Tensor of shape (B, D, N), optional
+            Initial hidden state. If None, uses zeros.
+
+    Returns:
+        torch.Tensor of shape (B, L, D, N)
+            Hidden states h_t for all timesteps t=1..L
+    """
+    B, L, D, N = A_bar.shape
+    device = A_bar.device
+    dtype = A_bar.dtype
+
+    if initial_state is None:
+        initial_state = torch.zeros(B, D, N, device=device, dtype=dtype)
+
+    # Pad to next power of 2
+    L_original = L
+    L_pow2 = 1
+    while L_pow2 < L:
+        L_pow2 *= 2
+
+    if L_pow2 > L_original:
+        # Pad with identity elements
+        pad_width = L_pow2 - L_original
+        A_identity = torch.ones(B, pad_width, D, N, device=device, dtype=dtype)
+        b_identity = torch.zeros(B, pad_width, D, N, device=device, dtype=dtype)
+
+        A_work = torch.cat([A_bar, A_identity], dim=1)
+        b_work = torch.cat([B_bar_x, b_identity], dim=1)
+    else:
+        A_work = A_bar.clone()
+        b_work = B_bar_x.clone()
+
+    # Iterative doubling for inclusive scan
+    offset = 1
+    while offset < L_pow2:
+        # Create indices for elements that will be updated
+        indices = torch.arange(offset, L_pow2, dtype=torch.long, device=device)
+        prev_indices = indices - offset
+
+        # Get elements to combine
+        A_prev = A_work[:, prev_indices]
+        b_prev = b_work[:, prev_indices]
+        A_curr = A_work[:, indices].clone()
+        b_curr = b_work[:, indices].clone()
+
+        # Apply binary operator
+        A_combined, b_combined = ssm_binary_operator((A_prev, b_prev), (A_curr, b_curr))
+
+        # Update current elements
+        A_work[:, indices] = A_combined
+        b_work[:, indices] = b_combined
+
+        offset *= 2
+
+    # Remove padding
+    if L_pow2 > L_original:
+        A_work = A_work[:, :L_original]
+        b_work = b_work[:, :L_original]
+
+    # Apply initial state:
+    h_all = A_work * initial_state.unsqueeze(1) + b_work
+    return h_all

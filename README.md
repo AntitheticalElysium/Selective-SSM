@@ -32,8 +32,8 @@ A reimplementation of a selective state space model.
 ### Parallel Scan Algorithm
 - [x] Implement basic associative scan in PyTorch (naive version)
 - [x] Study parallel scan algorithms (Blelloch 1990 reference)
-- [ ] Implement work-efficient parallel scan
-- [ ] Test correctness against recurrent computation
+- [x] Implement work-efficient parallel scan
+- [x] Test correctness against recurrent computation
 
 ### Kernel Fusion (Critical for efficiency)
 - [ ] Write custom CUDA kernel for fused discretization + scan + output projection

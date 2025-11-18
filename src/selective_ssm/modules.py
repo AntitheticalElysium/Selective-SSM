@@ -86,10 +86,13 @@ class SelectiveSSM(nn.Module):
         self.B_proj = nn.Linear(d_model, d_model * d_state, bias=False)
         self.C_proj = nn.Linear(d_model, d_model * d_state, bias=False)
 
-    def forward(self, x):
+    def forward(self, x, use_parallel_scan=False):
         """
         Args:
             x (torch.Tensor): The input sequence, shape (B, L, D).
+            use_parallel_scan (bool):
+                If true, use Blelloch scan (faster).
+                else use sequential recurrence (less memory).
 
         Returns:
             torch.Tensor: The output sequence y, shape (B, L, D).
@@ -105,27 +108,42 @@ class SelectiveSSM(nn.Module):
         B_selective = self.B_proj(x).view(B, L, D, N)
         # Output matrix for each token
         C_selective = self.C_proj(x).view(B, L, D, N)
-        # Initialize hidden state
-        h = torch.zeros(B, D, N, device=x.device, dtype=x.dtype)
 
-        outputs = []
+        if use_parallel_scan:
+            # Discretize all timesteps at once
+            delta_expanded = delta.unsqueeze(-1)
+            A_expanded = self.A.unsqueeze(0).unsqueeze(0)
 
-        for t in range(L):
-            x_t = x[:, t, :]
-            delta_t = delta[:, t, :]
-            B_t = B_selective[:, t, :, :]
-            C_t = C_selective[:, t, :, :]
-            # Reshape for broadcast => (B, D, 1)
-            delta_t = delta_t.unsqueeze(-1)
-            x_t = x_t.unsqueeze(-1)
-            # Use ZOH selective
-            A_bar, B_bar = F.discretize_zoh_selective(delta_t, self.A, B_t)
-            # SSM recurrence relation
-            h = A_bar * h + B_bar * x_t
-            # Compute output => (B, D)
-            y_t = (h * C_t).sum(dim=-1)
-            outputs.append(y_t)
+            # Vectorized discretization
+            delta_A = delta_expanded * A_expanded
+            A_bar = torch.exp(delta_A)
+            B_bar = (A_bar - 1) / delta_A * delta_expanded * B_selective
 
-        # Stack outputs along the sequence dim => (B, L, D)
-        y = torch.stack(outputs, dim=1)
+            # Precompute B_bar * x
+            B_bar_x = B_bar * x.unsqueeze(-1)
+            # Run parallel scan
+            h_all = F.blelloch_parallel_scan(A_bar, B_bar_x)
+            # Compute output for all timesteps
+            y = (h_all * C_selective).sum(dim=-1)
+
+        else:
+            h = torch.zeros(B, D, N, device=x.device, dtype=x.dtype)
+            outputs = []
+
+            for t in range(L):
+                delta_t = delta[:, t, :].unsqueeze(-1)
+                B_t = B_selective[:, t, :, :]
+                C_t = C_selective[:, t, :, :]
+                x_t = x[:, t, :].unsqueeze(-1)
+
+                # Discretize
+                A_bar, B_bar = F.discretize_zoh_selective(delta_t, self.A, B_t)
+                # SSM step
+                h = A_bar * h + B_bar * x_t
+                # Output
+                y_t = (h * C_t).sum(dim=-1)
+                outputs.append(y_t)
+
+            y = torch.stack(outputs, dim=1)
+
         return y

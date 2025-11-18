@@ -2,7 +2,11 @@ import unittest
 
 import torch
 
-from src.selective_ssm.functional import naive_sequential_scan, ssm_binary_operator
+from src.selective_ssm.functional import (
+    blelloch_parallel_scan,
+    naive_sequential_scan,
+    ssm_binary_operator,
+)
 
 
 class TestBinaryOperator(unittest.TestCase):
@@ -317,6 +321,118 @@ class TestNaiveScan(unittest.TestCase):
             self.assertEqual(h.dtype, dtype, f"Dtype not preserved for {dtype}")
 
         print("Data type preservation test passed")
+
+
+class TestBlellochScan(unittest.TestCase):
+    """Test the Blelloch work-efficient parallel scan implementation."""
+
+    def setUp(self):
+        torch.manual_seed(42)
+        self.B = 2
+        self.D = 4
+        self.N = 8
+
+    def test_blelloch_vs_naive(self):
+        """Test that Blelloch scan gives same results as naive scan."""
+        L = 10
+        A_bar = torch.randn(self.B, L, self.D, self.N)
+        B_bar_x = torch.randn(self.B, L, self.D, self.N)
+
+        # Naive scan (reference)
+        h_naive = naive_sequential_scan(A_bar, B_bar_x)
+
+        # Blelloch scan
+        h_blelloch = blelloch_parallel_scan(A_bar, B_bar_x)
+
+        # Should be identical
+        max_diff = (h_naive - h_blelloch).abs().max().item()
+        self.assertTrue(
+            torch.allclose(h_naive, h_blelloch, atol=1e-5),
+            f"Blelloch vs naive mismatch: max diff = {max_diff}",
+        )
+        print(f"Blelloch vs naive test passed (max diff: {max_diff:.2e})")
+
+    def test_blelloch_vs_manual(self):
+        """Test Blelloch scan against manual recurrence."""
+        L = 10
+        A_bar = torch.randn(self.B, L, self.D, self.N)
+        B_bar_x = torch.randn(self.B, L, self.D, self.N)
+
+        # Manual recurrence
+        h_manual = torch.zeros(self.B, self.D, self.N)
+        h_manual_all = []
+        for t in range(L):
+            h_manual = A_bar[:, t] * h_manual + B_bar_x[:, t]
+            h_manual_all.append(h_manual.clone())
+        h_manual_stacked = torch.stack(h_manual_all, dim=1)
+
+        # Blelloch scan
+        h_blelloch = blelloch_parallel_scan(A_bar, B_bar_x)
+
+        max_diff = (h_manual_stacked - h_blelloch).abs().max().item()
+        self.assertTrue(
+            torch.allclose(h_manual_stacked, h_blelloch, atol=1e-5),
+            f"Blelloch vs manual mismatch: max diff = {max_diff}",
+        )
+        print(f"Blelloch vs manual test passed (max diff: {max_diff:.2e})")
+
+    def test_blelloch_with_initial_state(self):
+        """Test Blelloch scan with non-zero initial state."""
+        L = 5
+        A_bar = torch.randn(self.B, L, self.D, self.N)
+        B_bar_x = torch.randn(self.B, L, self.D, self.N)
+        initial_state = torch.randn(self.B, self.D, self.N)
+
+        # Blelloch with initial state
+        h_blelloch = blelloch_parallel_scan(A_bar, B_bar_x, initial_state=initial_state)
+
+        # Manual computation with initial state
+        h_manual = initial_state.clone()
+        h_manual_all = []
+        for t in range(L):
+            h_manual = A_bar[:, t] * h_manual + B_bar_x[:, t]
+            h_manual_all.append(h_manual.clone())
+        h_manual_stacked = torch.stack(h_manual_all, dim=1)
+
+        self.assertTrue(torch.allclose(h_manual_stacked, h_blelloch, atol=1e-5))
+        print("Blelloch with initial state test passed")
+
+    def test_blelloch_non_power_of_2(self):
+        """Test Blelloch scan with non-power-of-2 sequence lengths."""
+        test_lengths = [1, 3, 5, 7, 10, 15, 100, 127, 129]
+
+        for L in test_lengths:
+            A_bar = torch.randn(self.B, L, self.D, self.N)
+            B_bar_x = torch.randn(self.B, L, self.D, self.N)
+
+            # Blelloch scan
+            h_blelloch = blelloch_parallel_scan(A_bar, B_bar_x)
+
+            # Manual reference
+            h_manual = torch.zeros(self.B, self.D, self.N)
+            h_manual_all = []
+            for t in range(L):
+                h_manual = A_bar[:, t] * h_manual + B_bar_x[:, t]
+                h_manual_all.append(h_manual.clone())
+            h_manual_stacked = torch.stack(h_manual_all, dim=1)
+
+            self.assertTrue(
+                torch.allclose(h_manual_stacked, h_blelloch, atol=1e-5),
+                f"Failed for L={L}",
+            )
+
+        print(f"Non-power-of-2 lengths test passed (tested L={test_lengths})")
+
+    def test_blelloch_output_shape(self):
+        """Test that Blelloch scan produces correct output shape."""
+        L = 10
+        A_bar = torch.randn(self.B, L, self.D, self.N)
+        B_bar_x = torch.randn(self.B, L, self.D, self.N)
+
+        h = blelloch_parallel_scan(A_bar, B_bar_x)
+
+        self.assertEqual(h.shape, (self.B, L, self.D, self.N))
+        print("Blelloch output shape test passed")
 
 
 if __name__ == "__main__":
