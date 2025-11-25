@@ -57,7 +57,7 @@ class SelectiveSSM(nn.Module):
     Selective State Space Model (with delta, B, and C input-dependent).
     """
 
-    def __init__(self, d_model, d_state, **kwargs):
+    def __init__(self, d_model, d_state, use_parallel_scan=True, **kwargs):
         """
         Args:
             d_model (int): The dimension of the input and output (D).
@@ -66,6 +66,7 @@ class SelectiveSSM(nn.Module):
         super().__init__()
         self.d_model = d_model
         self.d_state = d_state
+        self.use_parallel_scan = use_parallel_scan
 
         # Static param A: real, init with neg values for stability
         # (D, N) => one independent SSM per channel
@@ -86,7 +87,7 @@ class SelectiveSSM(nn.Module):
         self.B_proj = nn.Linear(d_model, d_model * d_state, bias=False)
         self.C_proj = nn.Linear(d_model, d_model * d_state, bias=False)
 
-    def forward(self, x, use_parallel_scan=False):
+    def forward(self, x):
         """
         Args:
             x (torch.Tensor): The input sequence, shape (B, L, D).
@@ -109,7 +110,7 @@ class SelectiveSSM(nn.Module):
         # Output matrix for each token
         C_selective = self.C_proj(x).view(B, L, D, N)
 
-        if use_parallel_scan:
+        if self.use_parallel_scan:
             # Discretize all timesteps at once
             delta_expanded = delta.unsqueeze(-1)
             A_expanded = self.A.unsqueeze(0).unsqueeze(0)
@@ -147,3 +148,141 @@ class SelectiveSSM(nn.Module):
             y = torch.stack(outputs, dim=1)
 
         return y
+
+
+class RMSNorm(nn.Module):
+    """
+    Root Mean Square Layer Normalization.
+    """
+
+    def __init__(self, d_model, eps=1e-5):
+        super().__init__()
+        self.eps = eps
+        self.weight = nn.Parameter(torch.ones(d_model))
+
+    def forward(self, x):
+        """
+        Args:
+            x: (B, L, D) or any shape ending in D
+
+        Returns:
+            Normalized x with same shape
+        """
+        # Compute RMS over last dimension
+        rms = torch.sqrt(torch.mean(x**2, dim=-1, keepdim=True) + self.eps)
+        # Normalize and scale
+        x_normed = x / rms
+        return self.weight * x_normed
+
+
+class MambaBlock(nn.Module):
+    """
+    Single Mamba block combining SSM with gated MLP.
+
+    Args:
+        d_model (int): Model dimension D
+        d_state (int): SSM state dimension N
+        d_conv (int): Local convolution width (default: 4)
+        expand (int): Expansion factor E (default: 2)
+    """
+
+    def __init__(
+        self,
+        d_model,
+        d_state=16,
+        d_conv=4,
+        expand=2,
+        dt_rank="auto",
+        use_parallel_scan=True,
+    ):
+        super().__init__()
+        self.d_model = d_model
+        self.d_state = d_state
+        self.d_conv = d_conv
+        self.expand = expand
+        self.d_inner = int(self.expand * self.d_model)
+
+        # Input projection for two paths
+        self.in_proj = nn.Linear(d_model, self.d_inner * 2, bias=False)
+
+        # Main path
+        self.conv1d = nn.Conv1d(
+            in_channels=self.d_inner,
+            out_channels=self.d_inner,
+            kernel_size=d_conv,
+            groups=self.d_inner,  # Depthwise conv
+            padding=d_conv - 1,
+        )
+
+        self.activation = nn.SiLU()
+
+        # SSM
+        self.ssm = SelectiveSSM(
+            d_model=self.d_inner, d_state=d_state, use_parallel_scan=use_parallel_scan
+        )
+
+        # Output projection
+        self.out_proj = nn.Linear(self.d_inner, d_model, bias=False)
+
+    def forward(self, x):
+        """
+        Args:
+            x: (B, L, D) input sequence
+
+        Returns:
+            y: (B, L, D) output sequence
+        """
+        B, L, D = x.shape
+
+        # Input projection
+        x_proj = self.in_proj(x)
+        x_main, x_gate = torch.chunk(x_proj, 2, dim=-1)  # -> each (B, L, D_inner)
+
+        # Main path
+        x_main = x_main.transpose(1, 2)
+        x_main = self.conv1d(x_main)[:, :, :L]
+        x_main = x_main.transpose(1, 2)
+        # Activation
+        x_main = self.activation(x_main)
+        # SSM on main path
+        x_main = self.ssm(x_main)
+
+        # Gate path
+        x_gate = self.activation(x_gate)
+        # Gating (elem wise multi)
+        x = x_main * x_gate
+
+        # Output projection
+        y = self.out_proj(x)
+        return y
+
+
+class MambaLayer(nn.Module):
+    """
+    Complete Mamba layer: Norm -> MambaBlock -> Residual.
+    """
+
+    def __init__(self, d_model, d_state=16, d_conv=4, expand=2):
+        super().__init__()
+        self.norm = RMSNorm(d_model)
+        self.mamba = MambaBlock(
+            d_model=d_model,
+            d_state=d_state,
+            d_conv=d_conv,
+            expand=expand,
+        )
+
+    def forward(self, x):
+        """
+        Args:
+            x: (B, L, D)
+
+        Returns:
+            y: (B, L, D)
+        """
+        # Pre-norm (like modern Transformers)
+        residual = x
+        x = self.norm(x)
+        x = self.mamba(x)
+        x = x + residual
+        return x
