@@ -45,18 +45,18 @@ A reimplementation of a selective state space model.
 ## Phase 3: Mamba Block Architecture
 
 ### Block Components
-- [ ] Implement input projection (expansion to ED dimensions, E=2)
-- [ ] Add 1D convolution layer (before SSM)
-- [ ] Implement SSM layer with selection mechanism
-- [ ] Add SiLU/Swish activation function
-- [ ] Implement output projection (contract back to D dimensions)
-- [ ] Add optional normalization layer
+- [x] Implement input projection (expansion to ED dimensions, E=2)
+- [x] Add 1D convolution layer (before SSM)
+- [x] Implement SSM layer with selection mechanism
+- [x] Add SiLU/Swish activation function
+- [x] Implement output projection (contract back to D dimensions)
+- [x] Add optional normalization layer
 
 ### Full Mamba Block (Figure 3)
-- [ ] Combine all components following the architecture diagram
-- [ ] Implement residual connections
-- [ ] Add RMSNorm between blocks
-- [ ] Test single block forward/backward pass
+- [x] Combine all components following the architecture diagram
+- [x] Implement residual connections
+- [x] Add RMSNorm between blocks
+- [x] Test single block forward/backward pass
 
 
 ## Phase 4: Complete Model & Training
