@@ -68,10 +68,10 @@ A reimplementation of a selective state space model.
 - [x] Configure model sizes following Table 12 specifications
 
 ### Training Pipeline
-- [ ] Implement AdamW optimizer with proper hyperparameters
-- [ ] Add learning rate scheduler (warmup + cosine decay)
-- [ ] Implement gradient clipping (value 1.0)
-- [ ] Add weight decay (0.1) without applying to biases/norms
+- [x] Implement AdamW optimizer with proper hyperparameters
+- [x] Add learning rate scheduler (warmup + cosine decay)
+- [x] Implement gradient clipping (value 1.0)
+- [x] Add weight decay (0.1) without applying to biases/norms
 
 
 ## Phase 5: Validation & Testing
