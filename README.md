@@ -62,10 +62,10 @@ A reimplementation of a selective state space model.
 ## Phase 4: Complete Model & Training
 
 ### Model Assembly
-- [ ] Stack multiple Mamba blocks to create full model
-- [ ] Implement embedding layer and output head
-- [ ] Add proper weight initialization (S4D-Real or S4D-Lin)
-- [ ] Configure model sizes following Table 12 specifications
+- [x] Stack multiple Mamba blocks to create full model
+- [x] Implement embedding layer and output head
+- [x] Add proper weight initialization (S4D-Real or S4D-Lin)
+- [x] Configure model sizes following Table 12 specifications
 
 ### Training Pipeline
 - [ ] Implement AdamW optimizer with proper hyperparameters

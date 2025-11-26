@@ -8,6 +8,7 @@ dependencies = [
     "matplotlib>=3.10.6",
     "numpy>=2.3.3",
     "torch>=2.8.0",
+    "torchvision>=0.24",
 ]
 
 [dependency-groups]
@@ -48,6 +49,10 @@ addopts = [
     "--cov-report=term-missing",
     "--cov-report=html",
     "-v",
+    "-m", "not slow",
+]
+markers = [
+    "slow: marks tests as slow (requiring significant memory/time)",
 ]
 
 

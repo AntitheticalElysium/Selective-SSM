@@ -74,7 +74,6 @@ class SelectiveSSM(nn.Module):
         # Projections to make delta, B, C input-dependent
         self.delta_proj = nn.Linear(d_model, d_model, bias=False)
 
-        # Initialize delta bias according to paper
         dt_init_range = (0.001, 0.1)
         dt = (
             torch.rand(d_model) * (dt_init_range[1] - dt_init_range[0])
@@ -82,10 +81,9 @@ class SelectiveSSM(nn.Module):
         )
         inv_dt = torch.log(torch.exp(dt) - 1)
         self.delta_bias = nn.Parameter(inv_dt)
-        # B and C project from input dimension D to (D * N)
-        # => (B, L, D, N) in the forward pass
-        self.B_proj = nn.Linear(d_model, d_model * d_state, bias=False)
-        self.C_proj = nn.Linear(d_model, d_model * d_state, bias=False)
+        # Ooops...
+        self.B_proj = nn.Linear(d_model, d_state, bias=False)
+        self.C_proj = nn.Linear(d_model, d_state, bias=False)
 
     def forward(self, x):
         """
@@ -101,14 +99,10 @@ class SelectiveSSM(nn.Module):
         B, L, D = x.shape
         N = self.d_state
 
-        # Compute input-dependent parameters for the entire sequence
-        # delta is (B, L, D) => timestep size for each token and channel
         delta = torch.nn.functional.softplus(self.delta_proj(x) + self.delta_bias)
 
-        # Input matrix for each token
-        B_selective = self.B_proj(x).view(B, L, D, N)
-        # Output matrix for each token
-        C_selective = self.C_proj(x).view(B, L, D, N)
+        B_selective = self.B_proj(x).unsqueeze(2).expand(B, L, D, N)
+        C_selective = self.C_proj(x).unsqueeze(2).expand(B, L, D, N)
 
         if self.use_parallel_scan:
             # Discretize all timesteps at once

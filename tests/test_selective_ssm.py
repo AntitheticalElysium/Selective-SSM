@@ -97,8 +97,8 @@ class TestTheorem1(unittest.TestCase):
         for t in range(L):
             x_t = x[:, t, :]
             delta_t = delta[:, t, :, None]
-            B_t = model.B_proj(x[:, t, :]).view(B, d_model, d_state)
-            C_t = model.C_proj(x[:, t, :]).view(B, d_model, d_state)
+            B_t = model.B_proj(x[:, t, :]).unsqueeze(1).expand(B, d_model, d_state)
+            C_t = model.C_proj(x[:, t, :]).unsqueeze(1).expand(B, d_model, d_state)
 
             # Discretize with A=-1
             A_bar = torch.exp(-delta_t)
