@@ -35,7 +35,7 @@ A reimplementation of a selective state space model.
 - [x] Implement work-efficient parallel scan
 - [x] Test correctness against recurrent computation
 
-### Kernel Fusion (Critical for efficiency)
+### Kernel Fusion (Optional)
 - [ ] Write custom CUDA kernel for fused discretization + scan + output projection
 - [ ] Implement memory-efficient scan (HBM → SRAM data flow)
 - [ ] Add recomputation strategy for backward pass
@@ -77,9 +77,9 @@ A reimplementation of a selective state space model.
 ## Phase 5: Validation & Testing
 
 ### Synthetic Task Validation
-- [ ] Test on Selective Copying task (Table 1 target: ~99% accuracy)
-- [ ] Test on Induction Heads (Table 2 target: perfect extrapolation)
-- [ ] Verify selection mechanism is working (compare S4 vs S6)
+- [x] Test on Selective Copying task (Table 1 target: ~99% accuracy)
+- [x] Test on Induction Heads (Table 2 target: perfect extrapolation)
+- [x] Verify selection mechanism is working (compare S4 vs S6)
 
 ### Small-Scale Language Modeling
 - [ ] Set up training on small dataset (e.g., WikiText-103)
